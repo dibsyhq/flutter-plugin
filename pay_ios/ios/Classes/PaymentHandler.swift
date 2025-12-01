@@ -166,6 +166,13 @@ class PaymentHandler: NSObject {
     if let supportedNetworks = supportedNetworks(from: paymentConfigurationString) {
       paymentRequest.supportedNetworks = supportedNetworks
     }
+
+    // Add supported countries if available (iOS 11+).
+    if #available(iOS 11.0, *) {
+      if let supportedCountries = paymentConfiguration["supportedCountries"] as? Array<String> {
+        paymentRequest.supportedCountries = Set(supportedCountries)
+      }
+    }
     
     return paymentRequest
   }

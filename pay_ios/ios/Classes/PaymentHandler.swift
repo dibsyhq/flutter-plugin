@@ -217,12 +217,6 @@ extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
         print("Secure Element Pass: nil")
     }
     
-    // 5. Billing Address (Often nil until full authorization, but good to check)
-    if let billing = paymentMethod.billingAddress {
-        print("Billing Address Contact Found: \(billing)")
-    } else {
-        print("Billing Address: nil (User has not fully authorized yet)")
-    }
 
     print("--------------------------------------------\n")
 

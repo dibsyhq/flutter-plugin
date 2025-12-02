@@ -183,17 +183,16 @@ extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
 
   func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController, didSelectPaymentMethod paymentMethod: PKPaymentMethod, handler completion: @escaping (PKPaymentRequestPaymentMethodUpdate) -> Void) {
     
-    print("\n--- 🟢 DEBUG: PAYMENT METHOD SELECTED 🟢 ---")
+    ("\n--- 🟢 DUMPING PAYMENT METHOD 🟢 ---")
     
-    // 1. Display Name (e.g. "Visa 1234")
-    print("Display Name: \(paymentMethod ?? "nil")")
-    
+    // This prints the whole structure recursively
+    dump(paymentMethod)
     // CRASH/FAIL LOGIC:
     // We are returning an empty item list. This will cause the Apple Pay sheet
     let emptyUpdate = PKPaymentRequestPaymentMethodUpdate(paymentSummaryItems: [])
     completion(emptyUpdate)
     
-    }
+  }
     
   func paymentAuthorizationController(_: PKPaymentAuthorizationController, didAuthorizePayment payment: PKPayment, handler completion: @escaping (PKPaymentAuthorizationResult) -> Void) {
     

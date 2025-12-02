@@ -181,9 +181,58 @@ class PaymentHandler: NSObject {
 /// Extension that implements the completion methods in the delegate to respond to user selection.
 extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
 
-  func paymentAuthorizationControllerWillAuthorizePayment(_ controller: PKPaymentAuthorizationController) {
-      paymentHandlerStatus = .authorizationStarted
-  }
+  func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController, didSelectPaymentMethod paymentMethod: PKPaymentMethod, handler completion: @escaping (PKPaymentRequestPaymentMethodUpdate) -> Void) {
+    
+    print("\n--- 🟢 DEBUG: PAYMENT METHOD SELECTED 🟢 ---")
+    
+    // 1. Display Name (e.g. "Visa 1234")
+    print("Display Name: \(paymentMethod.displayName ?? "nil")")
+    
+    // 2. Network (e.g. "Visa", "Amex")
+    if let network = paymentMethod.network {
+        print("Network (Raw Value): \(network.rawValue)")
+    } else {
+        print("Network: nil")
+    }
+    
+    // 3. Card Type
+    var typeString = "Unknown"
+    switch paymentMethod.type {
+        case .debit: typeString = "Debit"
+        case .credit: typeString = "Credit"
+        case .prepaid: typeString = "Prepaid"
+        case .store: typeString = "Store"
+        case .eMoney: typeString = "eMoney"
+        @unknown default: typeString = "Unknown Default"
+    }
+    print("Type: \(typeString)")
+    
+    // 4. Secure Element Pass (The actual digital card reference in Wallet)
+    // This is often nil in the simulator, but valuable on real devices
+    if let pass = paymentMethod.secureElementPass {
+        print("Secure Element Pass Found:")
+        print("   - Device Account ID: \(pass.deviceAccountIdentifier ?? "nil")")
+        print("   - Activation State: \(pass.passActivationState.rawValue)")
+    } else {
+        print("Secure Element Pass: nil")
+    }
+    
+    // 5. Billing Address (Often nil until full authorization, but good to check)
+    if let billing = paymentMethod.billingAddress {
+        print("Billing Address Contact Found: \(billing)")
+    } else {
+        print("Billing Address: nil (User has not fully authorized yet)")
+    }
+
+    print("--------------------------------------------\n")
+
+    // CRASH/FAIL LOGIC:
+    // We are returning an empty item list. This will cause the Apple Pay sheet
+    // to either show a $0 transaction or error out, stopping the flow here.
+    let emptyUpdate = PKPaymentRequestPaymentMethodUpdate(paymentSummaryItems: [])
+    completion(emptyUpdate)
+    
+    }
     
   func paymentAuthorizationController(_: PKPaymentAuthorizationController, didAuthorizePayment payment: PKPayment, handler completion: @escaping (PKPaymentAuthorizationResult) -> Void) {
     

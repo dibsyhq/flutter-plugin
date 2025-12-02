@@ -183,13 +183,19 @@ extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
 
   func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController, didSelectPaymentMethod paymentMethod: PKPaymentMethod, handler completion: @escaping (PKPaymentRequestPaymentMethodUpdate) -> Void) {
       
-      print("\n--- 🟢 PAYMENT METHOD LOG 🟢 ---")
-      
-      // 1. Basic Info (Available on all versions)
-      print("Name:    \(paymentMethod.displayName ?? "nil")")
-      print("Network: \(paymentMethod.network?.rawValue ?? "nil")")
-      print("Type:    \(paymentMethod.type.stringValue)")
-      print("--------------------------------\n")
+      // 1. Name (Handle optional)
+      let nameString = paymentMethod.displayName ?? "Unknown"
+
+      // 2. Network (Extract raw string value)
+      let networkString = paymentMethod.network?.rawValue ?? "Unknown"
+
+      // 3. Type (Uses the extension below)
+      let typeString = paymentMethod.type.stringValue
+
+      // Log them to verify
+      print("Name:    \(nameString)")
+      print("Network: \(networkString)")
+      print("Type:    \(typeString)")
 
       // Return empty update to keep the sheet alive
       let emptyUpdate = PKPaymentRequestPaymentMethodUpdate(paymentSummaryItems: [])
@@ -225,4 +231,18 @@ extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
       }
     }
   }
+}
+
+
+extension PKPaymentMethodType {
+    var stringValue: String {
+        switch self {
+        case .debit:   return "Debit"
+        case .credit:  return "Credit"
+        case .prepaid: return "Prepaid"
+        case .store:   return "Store"
+        case .eMoney:  return "eMoney"
+        default:       return "Unknown"
+        }
+    }
 }

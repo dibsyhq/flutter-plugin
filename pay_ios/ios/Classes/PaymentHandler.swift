@@ -183,43 +183,32 @@ extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
 
   func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController, didSelectPaymentMethod paymentMethod: PKPaymentMethod, handler completion: @escaping (PKPaymentRequestPaymentMethodUpdate) -> Void) {
       
-      print("\n--- 🟢 MANUAL DATA INSPECTION 🟢 ---")
+      print("\n--- 🟢 PAYMENT METHOD LOG 🟢 ---")
       
-      // 1. Display Name (The text shown to user, e.g., "Visa 1234")
-      let name = paymentMethod.displayName ?? "nil"
-      print("Name:    \(name)")
+      // 1. Basic Info (Available on all versions)
+      print("Name:    \(paymentMethod.displayName ?? "nil")")
+      print("Network: \(paymentMethod.network?.rawValue ?? "nil")")
       
-      // 2. Network (The card scheme, e.g., Visa, MasterCard, Amex)
-      // We use .rawValue to get the string representation
-      if let net = paymentMethod.network {
-          print("Network: \(net.rawValue)")
+      // 2. Secure Element Pass (Restricted to iOS 13.4+)
+      if #available(iOS 13.4, *) {
+          // It is safe to access secureElementPass inside this block
+          if let pass = paymentMethod.secureElementPass {
+              print("Secure Pass: Found")
+              print(" - Activation State: \(pass.passActivationState.rawValue)")
+              print(" - Device Account ID: \(pass.deviceAccountIdentifier ?? "nil")")
+              
+              // Primary Account Identifier is often what banks/payment processors need for verification
+              print(" - Primary Account ID: \(pass.primaryAccountIdentifier ?? "nil")")
+          } else {
+              print("Secure Pass: nil (Object is empty)")
+          }
       } else {
-          print("Network: nil")
+          // Logic for users on iOS 13.3 or older
+          print("Secure Pass: Not checked (Requires iOS 13.4+)")
       }
       
-      // 3. Type (Debit, Credit, etc.)
-      // We must switch on the Enum to get a readable string
-      let typeStr: String
-      switch paymentMethod.type {
-          case .debit:   typeStr = "Debit"
-          case .credit:  typeStr = "Credit"
-          case .prepaid: typeStr = "Prepaid"
-          case .store:   typeStr = "Store Card"
-          case .eMoney:  typeStr = "eMoney"
-          default:       typeStr = "Unknown"
-      }
-      print("Type:    \(typeStr)")
-      
-      // 4. Secure Element Pass (Advanced usage, often nil at this stage)
-      if let pass = paymentMethod.secureElementPass {
-          print("Pass Activation State: \(pass.passActivationState.rawValue)")
-          print("Device Account ID: \(pass.deviceAccountIdentifier ?? "nil")")
-      } else {
-          print("Secure Pass Object: nil")
-      }
+      print("--------------------------------\n")
 
-      print("--------------------------------------\n")
-      
       // Return empty update to keep the sheet alive
       let emptyUpdate = PKPaymentRequestPaymentMethodUpdate(paymentSummaryItems: [])
       completion(emptyUpdate)

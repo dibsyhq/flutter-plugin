@@ -183,31 +183,55 @@ extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
 
   func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController, didSelectPaymentMethod paymentMethod: PKPaymentMethod, handler completion: @escaping (PKPaymentRequestPaymentMethodUpdate) -> Void) {
       
-      // 1. Name (Handle optional)
-      let nameString = paymentMethod.displayName ?? "Unknown"
-
-      let rawNetwork = paymentMethod.network
-      var detectedNetwork = "Unknown"
-
-      // --- CHECK 1: The Official Way (System Constants) ---
-      if rawNetwork == .visa {
-          detectedNetwork = "Visa"
-      } else if rawNetwork == .masterCard {
-          detectedNetwork = "MasterCard"
-      } else if rawNetwork == .amex {
-          detectedNetwork = "Amex"
-      }
-
-      let typeString = paymentMethod.type.stringValue
-
-      // Log them to verify
-      print("Name:    \(nameString)")
-      print("Network: \(detectedNetwork)")
-      print("Type:    \(typeString)")
-
-      // Return empty update to keep the sheet alive
-      let emptyUpdate = PKPaymentRequestPaymentMethodUpdate(paymentSummaryItems: [])
-      completion(emptyUpdate)
+let isCredit = paymentMethod.type == .credit
+    
+    // 2. Start with the clean, original list of items
+    // We make a copy so we don't permanently modify the base list
+    var currentItems = self.baseSummaryItems
+    
+    if isCredit {
+        // 3. Logic to add 2.5% Surcharge
+        
+        // Grab the original Total (usually the last item in the array)
+        if let originalTotalItem = currentItems.last {
+            
+            let originalAmount = originalTotalItem.amount
+            
+            // Define 2.5%
+            let surchargeRate = NSDecimalNumber(string: "0.025")
+            
+            // Calculate Surcharge: Amount * 0.025
+            let rawSurcharge = originalAmount.multiplying(by: surchargeRate)
+            
+            // Round to 2 decimal places (Currency standard)
+            let behavior = NSDecimalNumberHandler(roundingMode: .plain, 
+                                                  scale: 2, 
+                                                  raiseOnExactness: false, 
+                                                  raiseOnOverflow: false, 
+                                                  raiseOnUnderflow: false, 
+                                                  raiseOnDivideByZero: false)
+            let surchargeAmount = rawSurcharge.rounding(accordingToBehavior: behavior)
+            
+            // Create the Surcharge Line Item
+            let surchargeItem = PKPaymentSummaryItem(label: "Credit Card Surcharge (2.5%)", amount: surchargeAmount)
+            
+            // Calculate New Grand Total
+            let newTotalAmount = originalAmount.adding(surchargeAmount)
+            let newTotalItem = PKPaymentSummaryItem(label: originalTotalItem.label, amount: newTotalAmount)
+            
+            // Remove the old total from the list
+            currentItems.removeLast()
+            
+            // Add the Surcharge Item
+            currentItems.append(surchargeItem)
+            
+            // Add the New Grand Total
+            currentItems.append(newTotalItem)
+        }
+    }
+    
+    // 4. Return the update (Either the list with surcharge, or the original clean list)
+    completion(PKPaymentRequestPaymentMethodUpdate(paymentSummaryItems: currentItems))
   }
     
   func paymentAuthorizationController(_: PKPaymentAuthorizationController, didAuthorizePayment payment: PKPayment, handler completion: @escaping (PKPaymentAuthorizationResult) -> Void) {
@@ -245,12 +269,12 @@ extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
 extension PKPaymentMethodType {
     var stringValue: String {
         switch self {
-        case .debit:   return "Debit"
-        case .credit:  return "Credit"
-        case .prepaid: return "Prepaid"
-        case .store:   return "Store"
-        case .eMoney:  return "eMoney"
-        default:       return "Unknown"
+        case .debit:   return "debit"
+        case .credit:  return "credit"
+        case .prepaid: return "prepaid"
+        case .store:   return "store"
+        case .eMoney:  return "emoney"
+        default:       return "unknown"
         }
     }
 }

@@ -41,6 +41,7 @@ class PaymentHandler: NSObject {
   // This stores the original prices without any surcharges.
   var baseSummaryItems: [PKPaymentSummaryItem] = []
   
+  var creditSurchargeRate: NSDecimalNumber = .zero
   /// Holds the current status of the payment process.
   var paymentHandlerStatus: PaymentHandlerStatus!
   
@@ -77,6 +78,18 @@ class PaymentHandler: NSObject {
 
     // Reset payment handler status
     paymentHandlerStatus = .started
+    
+    self.creditSurchargeRate = .zero // Reset to 0 before every new payment
+
+    if let configDict = PaymentHandler.extractPaymentConfiguration(from: paymentConfiguration) {
+        if let processingFee = configDict["processingFee"] as? [String: Any],
+           let creditRate = processingFee["credit"] as? Double {
+            
+            // Convert "2.5" (percentage) to "0.025" (multiplier)
+            let multiplier = creditRate / 100.0
+            self.creditSurchargeRate = NSDecimalNumber(value: multiplier)
+        }
+    }
     
     // Deserialize payment configuration.
     guard let paymentRequest = PaymentHandler.createPaymentRequest(from: paymentConfiguration, paymentItems: paymentItems) else {
@@ -187,55 +200,46 @@ class PaymentHandler: NSObject {
 extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
 
   func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController, didSelectPaymentMethod paymentMethod: PKPaymentMethod, handler completion: @escaping (PKPaymentRequestPaymentMethodUpdate) -> Void) {
-      
+
     let isCredit = paymentMethod.type == .credit
-    
-    // 2. Start with the clean, original list of items
-    // We make a copy so we don't permanently modify the base list
-    var currentItems = self.baseSummaryItems
-    
-    if isCredit {
-        // 3. Logic to add 2.5% Surcharge
         
-        // Grab the original Total (usually the last item in the array)
-        if let originalTotalItem = currentItems.last {
+        // 1. Start with the clean, original list of items
+        var currentItems = self.baseSummaryItems
+        
+        // 2. Check if it is credit AND if we actually have a rate > 0
+        if isCredit && self.creditSurchargeRate.compare(.zero) == .orderedDescending {
             
-            let originalAmount = originalTotalItem.amount
-            
-            // Define 2.5%
-            let surchargeRate = NSDecimalNumber(string: "0.025")
-            
-            // Calculate Surcharge: Amount * 0.025
-            let rawSurcharge = originalAmount.multiplying(by: surchargeRate)
-            
-            // Round to 2 decimal places (Currency standard)
-            let behavior = NSDecimalNumberHandler(roundingMode: .plain, 
-                                                  scale: 2, 
-                                                  raiseOnExactness: false, 
-                                                  raiseOnOverflow: false, 
-                                                  raiseOnUnderflow: false, 
-                                                  raiseOnDivideByZero: false)
-            let surchargeAmount = rawSurcharge.rounding(accordingToBehavior: behavior)
-            
-            // Create the Surcharge Line Item
-            let surchargeItem = PKPaymentSummaryItem(label: "Credit Card Surcharge (2.5%)", amount: surchargeAmount)
-            
-            // Calculate New Grand Total
-            let newTotalAmount = originalAmount.adding(surchargeAmount)
-            let newTotalItem = PKPaymentSummaryItem(label: originalTotalItem.label, amount: newTotalAmount)
-            
-            // Remove the old total from the list
-            currentItems.removeLast()
-            
-            // Add the Surcharge Item
-            currentItems.append(surchargeItem)
-            
-            // Add the New Grand Total
-            currentItems.append(newTotalItem)
-        }
-    }
-    
-    // 4. Return the update (Either the list with surcharge, or the original clean list)
+            if let originalTotalItem = currentItems.last {
+                
+                let originalAmount = originalTotalItem.amount
+                
+                // Calculate the multiplier (e.g. 1.025 for a 2.5% increase)
+                let one = NSDecimalNumber(value: 1)
+                let multiplier = one.adding(self.creditSurchargeRate)
+                
+                // Calculate New Total: Original * 1.025
+                let rawNewTotal = originalAmount.multiplying(by: multiplier)
+                
+                // Round to 2 decimal places
+                let behavior = NSDecimalNumberHandler(roundingMode: .plain, 
+                                                      scale: 2, 
+                                                      raiseOnExactness: false, 
+                                                      raiseOnOverflow: false, 
+                                                      raiseOnUnderflow: false, 
+                                                      raiseOnDivideByZero: false)
+                
+                let finalNewTotal = rawNewTotal.rounding(accordingToBehavior: behavior)
+                
+                // Create the New Total Item
+                // We reuse the original label (e.g., "Total" or "Dibsy") but use the new higher price
+                let newTotalItem = PKPaymentSummaryItem(label: originalTotalItem.label, amount: finalNewTotal)
+                
+                // Remove the old total and add the new higher total
+                currentItems.removeLast()
+                currentItems.append(newTotalItem)
+            }
+        }      
+
     completion(PKPaymentRequestPaymentMethodUpdate(paymentSummaryItems: currentItems))
   }
     

@@ -188,25 +188,7 @@ extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
       // 1. Basic Info (Available on all versions)
       print("Name:    \(paymentMethod.displayName ?? "nil")")
       print("Network: \(paymentMethod.network?.rawValue ?? "nil")")
-      
-      // 2. Secure Element Pass (Restricted to iOS 13.4+)
-      if #available(iOS 13.4, *) {
-          // It is safe to access secureElementPass inside this block
-          if let pass = paymentMethod.secureElementPass {
-              print("Secure Pass: Found")
-              print(" - Activation State: \(pass.passActivationState.rawValue)")
-              print(" - Device Account ID: \(pass.deviceAccountIdentifier ?? "nil")")
-              
-              // Primary Account Identifier is often what banks/payment processors need for verification
-              print(" - Primary Account ID: \(pass.primaryAccountIdentifier ?? "nil")")
-          } else {
-              print("Secure Pass: nil (Object is empty)")
-          }
-      } else {
-          // Logic for users on iOS 13.3 or older
-          print("Secure Pass: Not checked (Requires iOS 13.4+)")
-      }
-      
+      print("Type:    \(paymentMethod.type.stringValue)")
       print("--------------------------------\n")
 
       // Return empty update to keep the sheet alive

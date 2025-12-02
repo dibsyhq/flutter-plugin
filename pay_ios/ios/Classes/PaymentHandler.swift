@@ -182,16 +182,47 @@ class PaymentHandler: NSObject {
 extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
 
   func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController, didSelectPaymentMethod paymentMethod: PKPaymentMethod, handler completion: @escaping (PKPaymentRequestPaymentMethodUpdate) -> Void) {
-    
-    ("\n--- 🟢 DUMPING PAYMENT METHOD 🟢 ---")
-    
-    // This prints the whole structure recursively
-    dump(paymentMethod)
-    // CRASH/FAIL LOGIC:
-    // We are returning an empty item list. This will cause the Apple Pay sheet
-    let emptyUpdate = PKPaymentRequestPaymentMethodUpdate(paymentSummaryItems: [])
-    completion(emptyUpdate)
-    
+      
+      print("\n--- 🟢 MANUAL DATA INSPECTION 🟢 ---")
+      
+      // 1. Display Name (The text shown to user, e.g., "Visa 1234")
+      let name = paymentMethod.displayName ?? "nil"
+      print("Name:    \(name)")
+      
+      // 2. Network (The card scheme, e.g., Visa, MasterCard, Amex)
+      // We use .rawValue to get the string representation
+      if let net = paymentMethod.network {
+          print("Network: \(net.rawValue)")
+      } else {
+          print("Network: nil")
+      }
+      
+      // 3. Type (Debit, Credit, etc.)
+      // We must switch on the Enum to get a readable string
+      let typeStr: String
+      switch paymentMethod.type {
+          case .debit:   typeStr = "Debit"
+          case .credit:  typeStr = "Credit"
+          case .prepaid: typeStr = "Prepaid"
+          case .store:   typeStr = "Store Card"
+          case .eMoney:  typeStr = "eMoney"
+          default:       typeStr = "Unknown"
+      }
+      print("Type:    \(typeStr)")
+      
+      // 4. Secure Element Pass (Advanced usage, often nil at this stage)
+      if let pass = paymentMethod.secureElementPass {
+          print("Pass Activation State: \(pass.passActivationState.rawValue)")
+          print("Device Account ID: \(pass.deviceAccountIdentifier ?? "nil")")
+      } else {
+          print("Secure Pass Object: nil")
+      }
+
+      print("--------------------------------------\n")
+      
+      // Return empty update to keep the sheet alive
+      let emptyUpdate = PKPaymentRequestPaymentMethodUpdate(paymentSummaryItems: [])
+      completion(emptyUpdate)
   }
     
   func paymentAuthorizationController(_: PKPaymentAuthorizationController, didAuthorizePayment payment: PKPayment, handler completion: @escaping (PKPaymentAuthorizationResult) -> Void) {

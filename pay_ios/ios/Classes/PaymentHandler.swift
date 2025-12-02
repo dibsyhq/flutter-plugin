@@ -202,43 +202,42 @@ extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
   func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController, didSelectPaymentMethod paymentMethod: PKPaymentMethod, handler completion: @escaping (PKPaymentRequestPaymentMethodUpdate) -> Void) {
 
     let isCredit = paymentMethod.type == .credit
+    
+    // 1. Start with the clean, original list of items
+    var currentItems = self.baseSummaryItems
+    
+    // CHANGE: Use 'NSDecimalNumber.zero' explicitly because 'compare' expects an NSNumber
+    if isCredit && self.creditSurchargeRate.compare(NSDecimalNumber.zero) == .orderedDescending {
         
-        // 1. Start with the clean, original list of items
-        var currentItems = self.baseSummaryItems
-        
-        // 2. Check if it is credit AND if we actually have a rate > 0
-        if isCredit && self.creditSurchargeRate.compare(.zero) == .orderedDescending {
+        if let originalTotalItem = currentItems.last {
             
-            if let originalTotalItem = currentItems.last {
-                
-                let originalAmount = originalTotalItem.amount
-                
-                // Calculate the multiplier (e.g. 1.025 for a 2.5% increase)
-                let one = NSDecimalNumber(value: 1)
-                let multiplier = one.adding(self.creditSurchargeRate)
-                
-                // Calculate New Total: Original * 1.025
-                let rawNewTotal = originalAmount.multiplying(by: multiplier)
-                
-                // Round to 2 decimal places
-                let behavior = NSDecimalNumberHandler(roundingMode: .plain, 
-                                                      scale: 2, 
-                                                      raiseOnExactness: false, 
-                                                      raiseOnOverflow: false, 
-                                                      raiseOnUnderflow: false, 
-                                                      raiseOnDivideByZero: false)
-                
-                let finalNewTotal = rawNewTotal.rounding(accordingToBehavior: behavior)
-                
-                // Create the New Total Item
-                // We reuse the original label (e.g., "Total" or "Dibsy") but use the new higher price
-                let newTotalItem = PKPaymentSummaryItem(label: originalTotalItem.label, amount: finalNewTotal)
-                
-                // Remove the old total and add the new higher total
-                currentItems.removeLast()
-                currentItems.append(newTotalItem)
-            }
-        }      
+            let originalAmount = originalTotalItem.amount
+            
+            // Calculate the multiplier (e.g. 1.025 for a 2.5% increase)
+            // CHANGE: Use 'NSDecimalNumber.one' for safety
+            let multiplier = NSDecimalNumber.one.adding(self.creditSurchargeRate)
+            
+            // Calculate New Total: Original * 1.025
+            let rawNewTotal = originalAmount.multiplying(by: multiplier)
+            
+            // Round to 2 decimal places
+            let behavior = NSDecimalNumberHandler(roundingMode: .plain, 
+                                                  scale: 2, 
+                                                  raiseOnExactness: false, 
+                                                  raiseOnOverflow: false, 
+                                                  raiseOnUnderflow: false, 
+                                                  raiseOnDivideByZero: false)
+            
+            let finalNewTotal = rawNewTotal.rounding(accordingToBehavior: behavior)
+            
+            // Create the New Total Item
+            let newTotalItem = PKPaymentSummaryItem(label: originalTotalItem.label, amount: finalNewTotal)
+            
+            // Remove the old total and add the new higher total
+            currentItems.removeLast()
+            currentItems.append(newTotalItem)
+        }
+    }
 
     completion(PKPaymentRequestPaymentMethodUpdate(paymentSummaryItems: currentItems))
   }

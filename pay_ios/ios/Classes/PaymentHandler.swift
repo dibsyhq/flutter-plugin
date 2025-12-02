@@ -36,6 +36,10 @@ enum PaymentHandlerStatus {
 /// paymentHandler.canMakePayments(stringArguments)
 /// ```
 class PaymentHandler: NSObject {
+
+  // CHANGE 1: Define the variable here so the class owns it.
+  // This stores the original prices without any surcharges.
+  var baseSummaryItems: [PKPaymentSummaryItem] = []
   
   /// Holds the current status of the payment process.
   var paymentHandlerStatus: PaymentHandlerStatus!
@@ -80,6 +84,7 @@ class PaymentHandler: NSObject {
       return
     }
     
+    self.baseSummaryItems = paymentRequest.paymentSummaryItems
     // Display the payment selector with the request created.
     let paymentController = PKPaymentAuthorizationController(paymentRequest: paymentRequest)
     paymentController.delegate = self
@@ -183,7 +188,7 @@ extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
 
   func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController, didSelectPaymentMethod paymentMethod: PKPaymentMethod, handler completion: @escaping (PKPaymentRequestPaymentMethodUpdate) -> Void) {
       
-let isCredit = paymentMethod.type == .credit
+    let isCredit = paymentMethod.type == .credit
     
     // 2. Start with the clean, original list of items
     // We make a copy so we don't permanently modify the base list

@@ -187,8 +187,7 @@ extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
       let nameString = paymentMethod.displayName ?? "Unknown"
 
       // 2. Network (Extract raw string value)
-      let networkString = paymentMethod.network?.rawValue ?? "Unknown"
-
+      let networkString = paymentMethod.network?.stringValue ?? "Unknown"
       // 3. Type (Uses the extension below)
       let typeString = paymentMethod.type.stringValue
 
@@ -243,6 +242,26 @@ extension PKPaymentMethodType {
         case .store:   return "Store"
         case .eMoney:  return "eMoney"
         default:       return "Unknown"
+        }
+    }
+}
+
+
+extension PKPaymentNetwork {
+    var stringValue: String {
+        switch self {
+        case .visa:           return "Visa"
+        case .masterCard:     return "MasterCard"
+        case .amex:           return "American Express"
+        case .discover:       return "Discover"
+        case .JCB:            return "JCB"
+        case .chinaUnionPay:  return "UnionPay"
+        case .interac:        return "Interac"
+        case .maestro:        return "Maestro"
+        case .electron:       return "Visa Electron"
+        case .vPay:           return "V Pay"
+        // Add regional networks if needed (e.g., Mada, Suica, etc.)
+        default:              return self.rawValue // Fallback to Apple's default string
         }
     }
 }

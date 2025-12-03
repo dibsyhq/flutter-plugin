@@ -201,26 +201,18 @@ extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
 
   func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController, didSelectPaymentMethod paymentMethod: PKPaymentMethod, handler completion: @escaping (PKPaymentRequestPaymentMethodUpdate) -> Void) {
 
-    let isCredit = paymentMethod.type == .credit
+let isCredit = paymentMethod.type == .credit
     
     // 1. Start with the clean, original list of items
     var currentItems = self.baseSummaryItems
-    
-    // CHANGE: Use 'NSDecimalNumber.zero' explicitly because 'compare' expects an NSNumber
+
     if isCredit && self.creditSurchargeRate.compare(NSDecimalNumber.zero) == .orderedDescending {
         
         if let originalTotalItem = currentItems.last {
             
             let originalAmount = originalTotalItem.amount
             
-            // Calculate the multiplier (e.g. 1.025 for a 2.5% increase)
-            // CHANGE: Use 'NSDecimalNumber.one' for safety
-            let multiplier = NSDecimalNumber.one.adding(self.creditSurchargeRate)
-            
-            // Calculate New Total: Original * 1.025
-            let rawNewTotal = originalAmount.multiplying(by: multiplier)
-            
-            // Round to 2 decimal places
+            // 2. Define Rounding Behavior (Bankers rounding or Plain)
             let behavior = NSDecimalNumberHandler(roundingMode: .plain, 
                                                   scale: 2, 
                                                   raiseOnExactness: false, 
@@ -228,13 +220,31 @@ extension PaymentHandler: PKPaymentAuthorizationControllerDelegate {
                                                   raiseOnUnderflow: false, 
                                                   raiseOnDivideByZero: false)
             
-            let finalNewTotal = rawNewTotal.rounding(accordingToBehavior: behavior)
+            // 3. Calculate the Surcharge Amount (e.g., 100 * 0.025 = 2.5)
+            let rawSurcharge = originalAmount.multiplying(by: self.creditSurchargeRate)
+            let surchargeAmount = rawSurcharge.rounding(accordingToBehavior: behavior)
             
-            // Create the New Total Item
-            let newTotalItem = PKPaymentSummaryItem(label: originalTotalItem.label, amount: finalNewTotal)
+            // 4. Create the Surcharge Line Item
+            // Optional: Format the percentage for the label (e.g. "Credit Card Fee (2.5%)")
+            let percentage = self.creditSurchargeRate.multiplying(byPowerOf10: 2)
+            let surchargeLabel = "Credit Card Fee (\(percentage.stringValue)%)"
             
-            // Remove the old total and add the new higher total
+            let surchargeItem = PKPaymentSummaryItem(label: surchargeLabel, amount: surchargeAmount)
+            // Note: If you want to show it as an additional cost, usually types are final.
+            surchargeItem.type = .final 
+            
+            // 5. Calculate New Grand Total (Original + Surcharge)
+            let newTotalAmount = originalAmount.adding(surchargeAmount)
+            let newTotalItem = PKPaymentSummaryItem(label: originalTotalItem.label, amount: newTotalAmount)
+            
+            // 6. Construct the new list
+            // Remove the old total
             currentItems.removeLast()
+            
+            // Add the surcharge line item
+            currentItems.append(surchargeItem)
+            
+            // Add the new Grand Total at the very end (Apple Pay requirement)
             currentItems.append(newTotalItem)
         }
     }
